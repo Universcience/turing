@@ -60,7 +60,11 @@ machine* load_machine (const char* filename, bool snapshot)
 	
 	char* contents = calloc(len, sizeof(char));
 	if (read(fd, contents, len) != len)
+	{
+		free(contents);
+		close(fd);
 		return NULL;
+	}
 
 	close(fd);
 
