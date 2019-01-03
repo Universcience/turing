@@ -1,5 +1,5 @@
 /*  Quick and dirty implementation of ncurses-based Turing machines.
- *  Copyright (C) 2017-2018 - Jérôme Kirman
+ *  Copyright (C) 2017-2019 - Jérôme Kirman
  *
  *  This program is free software: you can redistribute it and/or modify it
  *  under the terms of the GNU Affero General Public License as published by
@@ -25,10 +25,10 @@ typedef enum {
 	RIGHT = +1
 } direction;
 
-typedef char symbol;  // Printable symbol
-typedef unsigned sid; // Symbol ID in alphabet
+typedef unsigned char symbol; // Printable symbol
+typedef size_t sid;           // Symbol ID in alphabet
 
-typedef int state;
+typedef size_t state;
 #define HALT ((state) -1)
 
 typedef struct {
@@ -42,28 +42,28 @@ typedef step bstep;
 
 typedef struct {
 	sid* contents; // Contents of the tape
-	unsigned size; // Total physical size
-	unsigned head; // Current head offset
+	size_t size;   // Total physical size
+	size_t head;   // Current head offset
 	symbol blank;  // Default tape filling
 } tape;
 
 typedef struct {
 	symbol* alph; // Display alphabet
-	unsigned as;  // Alphabet size
-	unsigned ns;  // Number of states
+	size_t as;    // Alphabet size
+	size_t ns;    // Number of states
 	step** tf;    // Transition function
 	state s;      // Current state
 	tape t;       // Machine tape
 } machine;
 
 typedef struct {
-	bstep* hist;   // History of all backwards steps
-	unsigned size; // Total length of history
-	unsigned n;    // Current position
+	bstep* hist; // History of all backwards steps
+	size_t size; // Total length of history
+	size_t n;    // Current position
 } history;
 
 // Create a new TM on a blank (alph[0]) tape with the provided characteristics.
-machine* new_machine (symbol* alph, unsigned as, unsigned ns, step** instructions, state start);
+machine* new_machine (symbol* alph, size_t as, size_t ns, step** instructions, state start);
 
 // Save/load a machine in a text file (with or without tape and current state).
 machine* load_machine (const char* filename, bool snapshot);

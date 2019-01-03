@@ -1,5 +1,5 @@
 /*  Quick and dirty implementation of ncurses-based Turing machines.
- *  Copyright (C) 2017-2018 - Jérôme Kirman
+ *  Copyright (C) 2017-2019 - Jérôme Kirman
  *
  *  This program is free software: you can redistribute it and/or modify it
  *  under the terms of the GNU Affero General Public License as published by
@@ -45,6 +45,10 @@
  * q - Quit
  */
 
+unsigned clamp (unsigned min, unsigned val, unsigned max);
+void print_instructions (machine* m, int x, int y);
+void flatline (size_t n, bool fill);
+
 unsigned clamp (unsigned min, unsigned val, unsigned max)
 {
 	if (val < min)
@@ -66,32 +70,32 @@ unsigned clamp (unsigned min, unsigned val, unsigned max)
  *  6+---+-------+-------+-------+
  */
 
-void flatline (unsigned n, bool fill)
+void flatline (size_t n, bool fill)
 {
 	addstr(fill ? "+---" : "|   ");
-	for (unsigned i = 0 ; i < n ; ++i)
+	for (size_t i = 0 ; i < n ; ++i)
 		addstr(fill ? "+-------" : "|       " );
 	addstr(fill ? "+" : "|");
 }
 
-void print_instructions (machine* m, unsigned x, unsigned y)
+void print_instructions (machine* m, int x, int y)
 {
 	move(x,y);
 	flatline(m->ns, true);
 
 	move(y+1, x);
 	addstr("| S ");
-	for (unsigned i = 0 ; i < m->ns ; ++i)
-		printw("|   %i%c  ", i, (int) i == m->s ? '*' : ' '); // FIXME: i>9
+	for (int i = 0 ; i < (int) m->ns ; ++i)
+		printw("|   %i%c  ", i, i == (int) m->s ? '*' : ' '); // FIXME: i>9
 	addstr("|");
 
 	move(y+2, x);
 	flatline(m->ns, true);
 
-	for (unsigned i = 0 ; i < m->as ; ++i) {
+	for (int i = 0 ; i < (int) m->as ; ++i) {
 		move(y+3+2*i, x);
 		printw("| %c ", m->alph[i]);
-		for (unsigned j = 0 ; j < m->ns ; ++j) {
+		for (int j = 0 ; j < (int) m->ns ; ++j) {
 			printw("| %c %c ",
 			  m->alph[m->tf[j][i].sym],
 			  m->tf[j][i].dir == LEFT ? '<' : '>'
@@ -105,13 +109,13 @@ void print_instructions (machine* m, unsigned x, unsigned y)
 		printw("|");
 
 		move(y+4+2*i, x);
-		flatline(m->ns, i == m->as-1);
+		flatline(m->ns, i == (int) m->as-1);
 	}
 }
 
 int main (int argc, char* argv[])
 {
-	char* bbfile = "assets/bb5c.tm";
+	const char* bbfile = "assets/bb5c.tm";
 	if (argc == 2)
 		bbfile = argv[1];
 
@@ -126,8 +130,8 @@ int main (int argc, char* argv[])
 	keypad(stdscr, TRUE);
 	timeout(0);
 
-	char cmd;
-	unsigned view = 0;
+	int cmd;
+	int view = 0, vhead = 0;
 	unsigned speed = 16;
 	bool pause = false;
 	bool forward = true;
@@ -161,39 +165,40 @@ int main (int argc, char* argv[])
 
 		print_instructions(bb, 2, 2);
 
-		// Center view if required
-		if (lock || (follow && (bb->t.head < view || bb->t.head >= view + COLS)))
-			view = bb->t.head - COLS/2;
+		vhead = (int) bb->t.head;
 
-		if (view > (unsigned) -COLS)
-			view = 0;
+		// Center view if required
+		if (lock || (follow && (vhead < view || vhead >= view + COLS)))
+			view = vhead - COLS/2;
+
+		if (view < 0) { view = 0; }
 
 		// Draw tape
-		for (unsigned i = view ; i < view + COLS ; ++i)
-			if (i < bb->t.size)
+		for (int i = view ; i < view + COLS ; ++i)
+			if ((size_t) i < bb->t.size)
 				mvaddch(LINES/2, i-view, bb->alph[bb->t.contents[i]]);
 			else
 				mvaddch(LINES/2, i-view, ' ');
 
 		// Draw head, refresh and erase now-former head
-		mvaddch(LINES/2 - 1, bb->t.head-view, 'V');
+		mvaddch(LINES/2 - 1, vhead-view, 'V');
 		move(0,0);
 		cmd = getch();
 		flushinp();
-		mvaddch(LINES/2 - 1, bb->t.head-view, ' ');
+		mvaddch(LINES/2 - 1, vhead-view, ' ');
 
 		// Keyboard commands
 		switch (cmd) {
-			case 3: // Up
+			case KEY_UP:
 				speed--;
 				break;
-			case 2: // Down
+			case KEY_DOWN:
 				speed++;
 				break;
-			case 4: // Left
+			case KEY_LEFT:
 				forward = false;
 				break;
-			case 5: // Right
+			case KEY_RIGHT:
 				forward = true;
 				break;
 			case 'n':
@@ -215,7 +220,7 @@ int main (int argc, char* argv[])
 				lock ^= true;
 				break;
 			case 'c':
-				view = bb->t.head - COLS/2;
+				view = vhead - COLS/2;
 				break;
 			case '<':
 				view--;
@@ -232,7 +237,7 @@ int main (int argc, char* argv[])
 		speed = clamp(1, speed, 20);
 
 		// Beaver step
-		usleep(1 << speed);
+		usleep((unsigned) 1 << speed);
 
 		if (pause)
 			continue;
@@ -247,7 +252,7 @@ int main (int argc, char* argv[])
 
 	free(bb->t.contents);
 	free(bb->alph);
-	for (unsigned i = 0 ; i < bb->ns ; i++)
+	for (size_t i = 0 ; i < bb->ns ; i++)
 		free(bb->tf[i]);
 	free(bb->tf);
 	free(bb);
